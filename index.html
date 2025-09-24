@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Inbox Sederhana</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .login-section, .chat-section {
+            padding: 20px;
+            text-align: center;
+        }
+        .login-section {
+            display: block;
+        }
+        .chat-section {
+            display: none;
+        }
+        input[type="text"], input[type="file"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .chat-messages {
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            background: #fafafa;
+            border-radius: 5px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .message img {
+            max-width: 200px;
+            border-radius: 5px;
+        }
+        .message-file {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-name {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .timestamp {
+            font-size: 12px;
+            color: #999;
+        }
+        .logout-btn {
+            background-color: #dc3545;
+        }
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Section Login -->
+        <div id="loginSection" class="login-section">
+            <h2>Login ke Chat</h2>
+            <p>Masukkan nama Anda untuk mulai chat:</p>
+            <input type="text" id="userName" placeholder="Nama Anda..." required>
+            <br>
+            <button onclick="login()">Login</button>
+        </div>
+
+        <!-- Section Chat -->
+        <div id="chatSection" class="chat-section">
+            <h2>Inbox Chat</h2>
+            <p>Selamat datang, <span id="displayName" class="user-name"></span>!</p>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+            <br><br>
+
+            <div id="chatMessages" class="chat-messages"></div>
+
+            <div>
+                <textarea id="messageInput" placeholder="Ketik pesan Anda..." rows="3"></textarea>
+                <br>
+                <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx" multiple>
+                <br>
+                <button onclick="sendMessage()">Kirim Pesan</button>
+                <button onclick="sendFile()">Kirim File</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser  = localStorage.getItem('chatUser ') || '';
+        let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+
+        // Fungsi Login
+        function login() {
+            const userName = document.getElementById('userName').value.trim();
+            if (userName) {
+                currentUser  = userName;
+                localStorage.setItem('chatUser ', currentUser );
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('chatSection').style.display = 'block';
+                document.getElementById('displayName').textContent = currentUser ;
+                loadMessages();
+            } else {
+                alert('Nama tidak boleh kosong!');
+            }
+        }
+
+        // Fungsi Logout
+        function logout() {
+            currentUser  = '';
+            localStorage.removeItem('chatUser ');
+            document.getElementById('chatSection').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('userName').value = '';
+            document.getElementById('chatMessages').innerHTML = '';
+        }
+
+        // Fungsi Load Messages dari localStorage
+        function loadMessages() {
+            const chatDiv = document.getElementById('chatMessages');
+            chatDiv.innerHTML = '';
+            messages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                const timestamp = new Date(msg.timestamp).toLocaleString('id-ID');
+                
+                if (msg.type === 'text') {
+                    messageDiv.innerHTML = `
+                        <div class="user-name">${msg.user}</div>
+                        <div>${msg.content}</div>
+                        <div class="timestamp">${timestamp}</div>
+                    `;
+                } else if (msg.type === 'image') {
+                    messageDiv.innerHTML = `
+                        <div class="user-name">${msg.user}</div>
+                        <img src="${msg.content}" alt="Gambar">
+                        <div class="timestamp">${timestamp}</div>
+                    `;
+                } else if (msg.type === 'file') {
+                    const downloadLink = `<a href="${msg.content}" download="${msg.filename}">Download ${msg.filename}</a>`;
+                    messageDiv.innerHTML = `
+                        <div class="user-name">${msg.user}</div>
+                        <div class="message-file">${downloadLink}</div>
+                        <div class="timestamp">${timestamp}</div>
+                    `;
+                }
+                
+                chatDiv.appendChild(messageDiv);
+            });
+            chatDiv.scrollTop = chatDiv.scrollHeight; // Auto-scroll ke bawah
+        }
+
+        // Fungsi Kirim Pesan Teks
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            if (content && currentUser ) {
+                const msg = {
+                    user: currentUser ,
+                    content: content,
+                    timestamp: Date.now(),
+                    type: 'text'
+                };
+                messages.push(msg);
+                localStorage.setItem('chatMessages', JSON.stringify(messages));
+                input.value = '';
+                loadMessages();
+            }
+        }
+
+        // Fungsi Kirim File (Foto atau Dokumen)
+        function sendFile() {
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            if (files.length > 0 && currentUser ) {
+                for (let file of files) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        let msg;
+                        if (file.type.startsWith('image/')) {
+                            // Untuk gambar: simpan base64
+                            msg = {
+                                user: currentUser ,
+                                content: e.target.result,
+                                timestamp: Date.now(),
+                                type: 'image'
+                            };
+                        } else {
+                            // Untuk file lain: simpan sebagai blob URL (untuk download)
+                            const blobUrl = URL.createObjectURL(file);
+                            msg = {
+                                user: currentUser ,
+                                content: blobUrl,
+                                filename: file.name,
+                                timestamp: Date.now(),
+                                type: 'file'
+                            };
+                        }
+                        messages.push(msg);
+                        localStorage.setItem('chatMessages', JSON.stringify(messages));
+                        loadMessages();
+                    };
+                    if (file.type.startsWith('image/')) {
+                        reader.readAsDataURL(file); // Base64 untuk gambar
+                    } else {
+                        reader.readAsDataURL(file); // Untuk file lain, tapi gunakan blob untuk download
+                    }
+                }
+                fileInput.value = ''; // Reset input file
+            }
+        }
+
+        // Event listener untuk Enter di input pesan
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Auto-load jika sudah login
+        if (currentUser ) {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('chatSection').style.display = 'block';
+            document.getElementById('displayName').textContent = currentUser ;
+            loadMessages();
+        }
+    </script>
+
+</body>
+</html>
